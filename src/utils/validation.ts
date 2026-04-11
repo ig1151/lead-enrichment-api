@@ -7,6 +7,10 @@ export const enrichSchema = Joi.object({
   enrichment_type: Joi.string().valid('company', 'person', 'both').default('company'),
   include_tech_stack: Joi.boolean().default(true),
   include_buying_signals: Joi.boolean().default(true),
+  generate_outreach: Joi.boolean().default(false),
+  sender_name: Joi.string().optional(),
+  sender_company: Joi.string().optional(),
+  outreach_goal: Joi.string().optional(),
   async: Joi.boolean().default(false),
   webhook_url: Joi.string().uri({ scheme: ['https'] }).optional().when('async', { is: false, then: Joi.forbidden() }),
 }).or('domain', 'company_name', 'email', 'linkedin_url').messages({

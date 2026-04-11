@@ -9,6 +9,10 @@ export interface EnrichRequest {
   enrichment_type?: EnrichmentType;
   include_tech_stack?: boolean;
   include_buying_signals?: boolean;
+  generate_outreach?: boolean;
+  sender_name?: string;
+  sender_company?: string;
+  outreach_goal?: string;
   async?: boolean;
   webhook_url?: string;
 }

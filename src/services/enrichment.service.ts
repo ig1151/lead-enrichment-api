@@ -10,8 +10,25 @@ const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 function buildPrompt(req: EnrichRequest, websiteContent: string): string {
   const techNote = req.include_tech_stack ? '"technologies": ["<tech1>", "<tech2>"],' : '';
   const signalNote = req.include_buying_signals !== false;
+  const outreachNote = req.generate_outreach === true;
+
+  const outreachBlock = outreachNote ? `,
+  "cold_email": {
+    "subject": "<compelling subject line>",
+    "body": "<personalised cold email 3-4 short paragraphs, signed by ${req.sender_name ?? 'the sender'} from ${req.sender_company ?? 'their company'}>"
+  },
+  "linkedin_message": "<personalised LinkedIn connection request under 300 characters>",
+  "follow_up_email": {
+    "subject": "<follow up subject line>",
+    "body": "<short follow up email assuming no response after 5 days>"
+  }` : '';
+
+  const goalNote = req.outreach_goal ? `Outreach goal: ${req.outreach_goal}.` : '';
+  const senderNote = req.sender_name ? `Sender: ${req.sender_name} from ${req.sender_company ?? 'their company'}.` : '';
 
   return `You are a B2B sales intelligence expert. Analyze the following information about a company and extract structured lead enrichment data.
+${goalNote}
+${senderNote}
 
 Input:
 - Domain: ${req.domain ?? 'unknown'}
@@ -49,6 +66,7 @@ Return ONLY a valid JSON object — no markdown, no explanation:
   "lead_score": <integer 0-100>,
   "lead_grade": "<A|B|C|D|F>",
   "recommended_approach": "<1-2 sentence outreach recommendation>"
+  ${outreachBlock}
 }`;
 }
 
@@ -93,6 +111,9 @@ export async function enrichLead(req: EnrichRequest): Promise<EnrichResponse> {
     lead_score: parsed.lead_score as number,
     lead_grade: parsed.lead_grade as EnrichResponse['lead_grade'],
     recommended_approach: parsed.recommended_approach as string,
+    cold_email: parsed.cold_email as EnrichResponse['cold_email'],
+linkedin_message: parsed.linkedin_message as string | undefined,
+follow_up_email: parsed.follow_up_email as EnrichResponse['follow_up_email'],
     latency_ms: Date.now() - t0,
     usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens },
     created_at: new Date().toISOString(),
