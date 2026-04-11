@@ -63,7 +63,15 @@ export interface OutreachContent {
   subject?: string;
   body: string;
 }
-
+export interface PersonalizationTokens {
+  company_name?: string;
+  pain_point?: string;
+  trigger_event?: string;
+  value_prop_angle?: string;
+  icebreaker?: string;
+  industry_context?: string;
+  company_size_context?: string;
+}
 export interface EnrichResponse {
   id: string;
   status: JobStatus;
@@ -78,6 +86,7 @@ export interface EnrichResponse {
   cold_email?: OutreachContent;
   linkedin_message?: string;
   follow_up_email?: OutreachContent;
+  personalization_tokens?: PersonalizationTokens;
   latency_ms: number;
   usage: { input_tokens: number; output_tokens: number };
   created_at: string;

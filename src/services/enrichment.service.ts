@@ -23,6 +23,17 @@ function buildPrompt(req: EnrichRequest, websiteContent: string): string {
     "body": "<short follow up email assuming no response after 5 days>"
   }` : '';
 
+  const personalizationBlock = `,
+  "personalization_tokens": {
+    "company_name": "<company name>",
+    "pain_point": "<main pain point or challenge this company faces>",
+    "trigger_event": "<recent event, milestone or news that makes this a good time to reach out>",
+    "value_prop_angle": "<best angle to position your solution for this company>",
+    "icebreaker": "<one sentence conversation starter based on something specific about this company>",
+    "industry_context": "<relevant industry trend or challenge affecting this company>",
+    "company_size_context": "<context about their size that affects how you'd approach them>"
+  }`;
+
   const goalNote = req.outreach_goal ? `Outreach goal: ${req.outreach_goal}.` : '';
   const senderNote = req.sender_name ? `Sender: ${req.sender_name} from ${req.sender_company ?? 'their company'}.` : '';
 
@@ -66,6 +77,7 @@ Return ONLY a valid JSON object — no markdown, no explanation:
   "lead_score": <integer 0-100>,
   "lead_grade": "<A|B|C|D|F>",
   "recommended_approach": "<1-2 sentence outreach recommendation>"
+  ${personalizationBlock}
   ${outreachBlock}
 }`;
 }
@@ -111,6 +123,7 @@ export async function enrichLead(req: EnrichRequest): Promise<EnrichResponse> {
     lead_score: parsed.lead_score as number,
     lead_grade: parsed.lead_grade as EnrichResponse['lead_grade'],
     recommended_approach: parsed.recommended_approach as string,
+    personalization_tokens: parsed.personalization_tokens as EnrichResponse['personalization_tokens'],
     cold_email: parsed.cold_email as EnrichResponse['cold_email'],
 linkedin_message: parsed.linkedin_message as string | undefined,
 follow_up_email: parsed.follow_up_email as EnrichResponse['follow_up_email'],
