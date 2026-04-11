@@ -59,6 +59,11 @@ export interface BuyingSignal {
   reason: string;
 }
 
+export interface OutreachContent {
+  subject?: string;
+  body: string;
+}
+
 export interface EnrichResponse {
   id: string;
   status: JobStatus;
@@ -70,6 +75,9 @@ export interface EnrichResponse {
   lead_score?: number;
   lead_grade?: 'A' | 'B' | 'C' | 'D' | 'F';
   recommended_approach?: string;
+  cold_email?: OutreachContent;
+  linkedin_message?: string;
+  follow_up_email?: OutreachContent;
   latency_ms: number;
   usage: { input_tokens: number; output_tokens: number };
   created_at: string;
