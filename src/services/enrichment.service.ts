@@ -1,11 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
-import { config } from '../utils/config';
 import { logger } from '../utils/logger';
 import { scrapeWebsite } from '../utils/scraper';
 import type { EnrichRequest, EnrichResponse } from '../types/index';
 
-const client = new Anthropic({ apiKey: config.anthropic.apiKey });
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const MODEL = 'anthropic/claude-sonnet-4-5';
 
 function buildPrompt(req: EnrichRequest, websiteContent: string): string {
   const techNote = req.include_tech_stack ? '"technologies": ["<tech1>", "<tech2>"],' : '';
@@ -85,24 +84,39 @@ Return ONLY a valid JSON object — no markdown, no explanation:
 export async function enrichLead(req: EnrichRequest): Promise<EnrichResponse> {
   const id = `req_${uuidv4().replace(/-/g, '').slice(0, 12)}`;
   const t0 = Date.now();
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
 
   logger.info({ id, domain: req.domain, company: req.company_name }, 'Starting lead enrichment');
 
   const domain = req.domain ?? extractDomainFromEmail(req.email) ?? '';
   let websiteContent = '';
-  if (domain) {
-    websiteContent = await scrapeWebsite(domain);
-  }
+  if (domain) websiteContent = await scrapeWebsite(domain);
 
   const prompt = buildPrompt({ ...req, domain }, websiteContent);
 
-  const response = await client.messages.create({
-    model: config.anthropic.model,
-    max_tokens: 2048,
-    messages: [{ role: 'user', content: prompt }],
+  const response = await fetch(OPENROUTER_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+    }),
   });
 
-  const raw = response.content.find((b) => b.type === 'text')?.text ?? '{}';
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenRouter error: ${response.status} ${err}`);
+  }
+
+  const data = await response.json() as { choices: { message: { content: string } }[], usage: { prompt_tokens: number; completion_tokens: number } };
+  const raw = data.choices[0].message.content ?? '{}';
+
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
@@ -116,7 +130,7 @@ export async function enrichLead(req: EnrichRequest): Promise<EnrichResponse> {
   return {
     id,
     status: 'success',
-    model: config.anthropic.model,
+    model: MODEL,
     domain: domain || undefined,
     company: parsed.company as EnrichResponse['company'],
     buying_signals: parsed.buying_signals as EnrichResponse['buying_signals'],
@@ -125,10 +139,10 @@ export async function enrichLead(req: EnrichRequest): Promise<EnrichResponse> {
     recommended_approach: parsed.recommended_approach as string,
     personalization_tokens: parsed.personalization_tokens as EnrichResponse['personalization_tokens'],
     cold_email: parsed.cold_email as EnrichResponse['cold_email'],
-linkedin_message: parsed.linkedin_message as string | undefined,
-follow_up_email: parsed.follow_up_email as EnrichResponse['follow_up_email'],
+    linkedin_message: parsed.linkedin_message as string | undefined,
+    follow_up_email: parsed.follow_up_email as EnrichResponse['follow_up_email'],
     latency_ms: Date.now() - t0,
-    usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens },
+    usage: { input_tokens: data.usage.prompt_tokens, output_tokens: data.usage.completion_tokens },
     created_at: new Date().toISOString(),
   };
 }
